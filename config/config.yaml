@@ -343,8 +343,16 @@ bioirrigation:
       sediments spans roughly 10-1000 yr-1 (Meile et al. 2001, inverse
       modelling). Dense callianassid beds sit at the top of that range.
       NO SPECIES-SPECIFIC alpha EXISTS FOR K. kraussi that I could
-      verify -- treat this as the single least constrained parameter in
-      the model and let the sensitivity analysis rank it.
+      verify, and you have confirmed you have no estimate either. Treat
+      this as the single least constrained parameter in the model.
+      The model's job is therefore to tell you HOW MUCH IT MATTERS: if
+      stage 6 ranks alpha0 high, you need to measure it before any flux
+      number is defensible.
+      HOW TO MEASURE IT: add an inert tracer (bromide, or fluorescein)
+      to the chamber water and fit its disappearance -- an inert tracer
+      is removed only by irrigation and advection, not respiration, so
+      it separates transport from consumption. This is the same trick
+      Janssen et al. (2005) used to calibrate 'Sandy'.
 
   depth_profile:
     value: "exponential"
@@ -496,34 +504,48 @@ chamber:
       A clear perspex chamber must be actively shrouded to be 'dark',
       and a clear one heats in sun -- log temperature in both.
 
-  diameter:
-    value: 0.30
+  bore:
+    value: 0.168
     units: m
-    range: [0.25, 0.35]
-    status: PLACEHOLDER
+    range: [0.160, 0.175]
+    status: MEASURED
     source: >
-      You said "around 30 cm, cannot explicitly remember". MEASURE IT --
-      the enclosed area A = pi*R^2 scales every flux you compute from
-      dC_w/dt, so a 10% diameter error is a 21% flux error. At 0.30 m,
-      A = 0.0707 m2.
+      INTERNAL diameter of the production chamber (168 mm bore, 200 mm
+      OD acrylic tube). This is the dimension that matters: the enclosed
+      sediment area is A = pi*(bore/2)^2 = 0.02217 m2.
+      SUPERSEDES the 0.30 m stage-0 placeholder. The real chamber
+      encloses 31% of the area I first assumed, which changes the
+      sensitivity conclusion -- see stage0 note sec. 12.
 
-  height_above_sediment:
-    value: 0.15
+  outer_diameter:
+    value: 0.200
     units: m
-    range: [0.05, 0.30]
-    status: PLACEHOLDER
-    source: "Sets the enclosed water volume. MEASURE IT."
+    range: [0.195, 0.205]
+    status: MEASURED
+    source: "200 mm OD acrylic tube."
 
-  water_volume:
-    value: null
-    units: m3
+  wall_thickness:
+    value: 0.016
+    units: m
     status: DERIVED
     source: >
-      V = pi*R^2*h if the chamber is a plain cylinder; at D=0.30 m and
-      h=0.15 m, V = 1.06e-2 m3 = 10.6 L. BETTER: measure V directly by
-      filling the assembled chamber, because stirrer, sensor, lid
-      curvature and sampling ports all displace water. V/A sets the
-      drawdown rate and therefore the whole deployment design.
+      (OD - bore)/2 = 16 mm. Thick. On insertion this displaces a 16 mm
+      annulus of sand and compacts the rim, which is exactly where the
+      stirrer-driven downwelling enters. Local permeability at the wall
+      may not equal bulk permeability. Not modelled; flagged as a
+      limitation (stage0 note L9).
+
+  tube_length:
+    value: 0.60
+    units: m
+    range: [0.40, 1.00]
+    status: PLACEHOLDER
+    source: >
+      Total tube length. You said "maybe around 60 cm, maybe slightly
+      longer, definitely less than 1 m". MEASURE IT -- the water column
+      height sets the flux sensitivity directly (dC_w/dt = J/h), and the
+      difference between 0.6 m and 0.9 m is a 1.6x change in how long you
+      must sit on station. Range spans your stated uncertainty.
 
   insertion_depth:
     value: 0.10
@@ -536,35 +558,119 @@ chamber:
       stirrer-driven flow; deep insertion truncates the deep pathway.
       Expected to be a top-ranked bias parameter in stage 6.
 
-  stirrer_pressure:
-    value: 1.5
-    units: Pa
-    range: [0.0, 5.0]
+  height_above_sediment:
+    value: null
+    units: m
+    status: DERIVED
+    source: >
+      h = tube_length - insertion_depth. At the defaults, 0.50 m.
+      This is the single most important number for whether your
+      deployment produces a usable signal.
+
+  water_volume:
+    value: null
+    units: m3
+    status: DERIVED
+    source: >
+      V = pi*(bore/2)^2 * h. At the defaults, 11.1 L.
+      BETTER: measure V directly by filling the assembled chamber,
+      because stirrer, sensor, lid and ports all displace water.
+
+  aspect_ratio_max:
+    value: 2.0
+    units: dimensionless
     status: LITERATURE
     source: >
-      'delta_p_s', the centre-to-wall dynamic pressure difference, with
-      p(r) = delta_p_s * (r/R)^2 (forced-vortex form -- the r^2 shape in
-      your prompt is CORRECT for solid-body rotation).
+      *** ADDED AT REVISION 1. *** Water-column height divided by bore.
+      The stirred-chamber designs this model is calibrated against run
+      at roughly 1.5-1.7 : 1 (Huettel & Gust 1992: 30 cm tall, 19 cm ID;
+      Janssen et al. 2005 'Sandy': same). The production chamber at
+      0.50 m / 0.168 m is 3.0 : 1, and up to 4.8 : 1 at a 0.9 m tube.
+      This value is the upper bound of the CALIBRATED envelope, not a
+      limit on what the model will run -- exceeding it triggers a
+      warning, because two assumptions start to fail (well-mixed water
+      column, and swirl reaching the bed). See stirrer_transfer_efficiency.
+
+  stirrer_pressure:
+    value: 0.84
+    units: Pa
+    range: [0.0, 3.0]
+    status: LITERATURE
+    source: >
+      'delta_p_s', the centre-to-wall dynamic pressure difference AT THE
+      SEDIMENT SURFACE, with p(r) = delta_p_s * (r/R)^2 (forced-vortex
+      form -- the r^2 shape in your prompt is CORRECT for solid-body
+      rotation).
       CALIBRATION ANCHOR: Huettel & Gust (1992), MEPS 82:187-197, set a
-      radial gradient of 0.2 Pa cm-1 in their stirred chamber, stated as
-      equivalent to a 10 cm s-1 bottom flow over a 7 cm ripple. For
-      p = delta_p_s*(r/R)^2 the gradient at the rim is 2*delta_p_s/R, so
-      0.2 Pa cm-1 at R = 0.15 m gives delta_p_s = 1.5 Pa. That is where
-      this default comes from.
+      radial gradient of 0.2 Pa cm-1, stated as equivalent to a 10 cm s-1
+      bottom flow over a 7 cm ripple. The rim gradient is 2*delta_p_s/R,
+      so 0.2 Pa cm-1 at R = 0.084 m gives delta_p_s = 0.84 Pa.
+      REVISED at revision 1 from 1.50 Pa: the anchor is a pressure
+      GRADIENT, so the smaller bore needs a proportionally smaller
+      centre-to-wall difference to reproduce it.
       SIGN: pressure is LOW at the centre, HIGH at the wall, so the model
       must predict porewater DOWNWELLING near the wall and UPWELLING at
       the centre -- the pattern Huettel & Gust observed. This is a
       falsifiable stage-5 check.
 
-  stirrer_dbl_thickness:
-    value: 4.0e-4
-    units: m
-    range: [1.0e-4, 1.5e-3]
+  stirrer_transfer_efficiency:
+    value: 1.0
+    units: dimensionless
+    range: [0.1, 1.0]
     status: ASSUMPTION
     source: >
-      DBL inside the chamber. Deliberately a SEPARATE parameter from
-      sediment.diffusive_boundary_layer so that chamber-vs-field DBL
-      mismatch can be isolated as a bias term.
+      *** ADDED AT REVISION 1 -- READ THIS ONE. *** Fraction of the
+      stirrer's nominal pressure field that actually reaches the
+      sediment surface. 1.0 means the forced vortex is fully developed
+      down to the bed, which is what the published chamber designs
+      achieve at ~1.6 : 1 aspect ratio with the disc close to the bed.
+      In a tube 3-5 bore diameters tall the swirl decays before it
+      reaches the sediment, so the real delta_p_s at the SWI is LOWER
+      than the stirrer setting -- possibly much lower.
+      I HAVE NO BASIS FOR A NUMBER HERE for this geometry. 1.0 is the
+      optimistic bound, deliberately, so the model over- rather than
+      under-states chamber advection until it is calibrated.
+      CALIBRATE IT: a tracer (dye or brine) release in the chamber over
+      an impermeable plate, or a differential pressure measurement
+      centre-to-wall at the bed. Until then, sweep 0.1-1.0 and treat
+      chamber advective flux as uncertain to an order of magnitude.
+
+  well_mixed_assumption:
+    value: true
+    status: NUMERICAL
+    source: >
+      The chamber water balance treats C_w as uniform. In a 0.5 m tall,
+      0.168 m bore tube this is a real assumption, not a formality --
+      and a clear chamber in sun can stratify thermally, which would
+      make the DO sensor read a local value rather than C_w.
+      PRACTICAL CHECK: a second DO sensor at a different height, or a
+      dye test. If they disagree, the flux is wrong regardless of
+      everything else in this model.
+
+  sensor_resolution:
+    value: 0.4
+    units: umol_per_m3_times_1000
+    range: [0.1, 2.0]
+    status: PLACEHOLDER
+    source: >
+      *** ADDED AT REVISION 1. *** Resolution of YOUR DO sensor in
+      umol/L (optodes are typically 0.1-0.4 umol/L resolution but
+      +/-2 umol/L absolute accuracy; what matters for a flux is
+      short-term stability and drift, not absolute accuracy).
+      Needed because the signal-to-noise calculation is now the
+      binding constraint on this chamber design -- see stage0 note
+      sec. 12. Enter your actual sensor spec.
+
+  sensor_drift:
+    value: 0.5
+    units: umol_per_L_per_hour
+    range: [0.0, 3.0]
+    status: PLACEHOLDER
+    source: >
+      Drift over a deployment. With a 0.5 m water column the
+      diffusion-only signal is ~0.5 umol/L/h, so drift of this order
+      is NOT a second-order correction -- it is the same size as the
+      thing you are measuring. Characterise it with a sealed blank.
 
   water_column_respiration:
     value: 0.0
@@ -575,14 +681,21 @@ chamber:
       Pelagic respiration in the enclosed water. Usually small but not
       always negligible over a long deployment; it is indistinguishable
       from sediment uptake in the dC_w/dt signal. A dark water-only blank
-      (chamber sealed off the bed) measures it.
+      (chamber sealed off the bed) measures it. NOTE: this scales with V
+      while the sediment signal scales with A, so a tall chamber is
+      disproportionately vulnerable to it.
 
   deployment_duration:
-    value: 3600.0
+    value: 14400.0
     units: s
-    range: [900.0, 14400.0]
+    range: [900.0, 86400.0]
     status: PLACEHOLDER
-    source: "How long you actually log DO for."
+    source: >
+      How long you actually log DO for. REVISED at revision 1 from 1 h
+      to 4 h, and the upper bound from 4 h to 24 h: with a 0.5 m water
+      column the diffusion-only case needs ~97 h to reach 20% drawdown,
+      so a 1 h deployment is not viable for a low-permeability,
+      prawn-free patch. See stage0 note sec. 12.
 
   max_drawdown_fraction:
     value: 0.20
@@ -595,6 +708,19 @@ chamber:
       flux and a linear fit under-reads the in-situ value. Stage 5
       quantifies this bias explicitly.
 
+  replicates:
+    value: 6
+    units: count
+    range: [1, 30]
+    status: ASSUMPTION
+    source: >
+      *** ADDED AT REVISION 1. *** Number of chamber deployments per
+      treatment. At 0.02217 m2 enclosed area and 100 prawns m-2, a
+      chamber holds a mean of 2.2 prawns, so Poisson counting noise on
+      prawn number alone gives a 67% coefficient of variation between
+      chambers; 6 replicates brings that to ~27%. Stage 6 reports this
+      properly. This is a study-design number, not a physical parameter.
+
   flux_estimator:
     value: "initial_slope"
     options: ["initial_slope", "linear_fit_full", "exponential_fit"]
@@ -603,6 +729,16 @@ chamber:
       How the flux is back-computed from C_w(t), i.e. what YOU would do
       with sensor data. Comparing estimators against the model's true
       instantaneous flux is one of the deliverables.
+
+  stirrer_dbl_thickness:
+    value: 4.0e-4
+    units: m
+    range: [1.0e-4, 1.5e-3]
+    status: ASSUMPTION
+    source: >
+      DBL inside the chamber. Deliberately a SEPARATE parameter from
+      sediment.diffusive_boundary_layer so that chamber-vs-field DBL
+      mismatch can be isolated as a bias term.
 
 # ---------------------------------------------------------------------
 # 8. NUMERICS

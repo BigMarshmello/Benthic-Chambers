@@ -35,8 +35,12 @@ def main() -> None:
     height = config.get(cfg, "field.mound_height")
     lam = config.get(cfg, "field.mound_wavelength")
 
-    radius = config.get(cfg, "chamber.diameter") / 2.0
+    bore = config.get(cfg, "chamber.bore")
+    radius = bore / 2.0
     dps = config.get(cfg, "chamber.stirrer_pressure")
+    tube = config.get(cfg, "chamber.tube_length")
+    d_ins = config.get(cfg, "chamber.insertion_depth")
+    h_ch = tube - d_ins
 
     theta2 = sc.tortuosity_squared(phi)
     d_s = sc.sediment_diffusivity(d0, phi)
@@ -89,8 +93,8 @@ def main() -> None:
     print("\n-- CHAMBER: stirrer forcing --------------------------------")
     rim = sc.stirrer_rim_gradient(dps, radius)
     dps_hg = sc.stirrer_pressure_from_rim_gradient(20.0, radius)
-    area = math.pi * radius**2
-    print(f"  chamber radius R             {radius:.3f} m   (area {area:.4f} m2)")
+    area = sc.chamber_area(bore)
+    print(f"  bore {bore*1e3:.0f} mm, R = {radius:.4f} m   (area {area:.5f} m2)")
     print(f"  delta_p_s (default)          {dps:.2f} Pa")
     print(f"  rim gradient 2*dp_s/R        {rim:.2f} Pa/m = {rim/100:.3f} Pa/cm")
     print(f"  delta_p_s matching H&G 0.2 Pa/cm at the rim: {dps_hg:.2f} Pa")
@@ -115,17 +119,47 @@ def main() -> None:
     print("  (tiny at the oxic-layer scale: irrigation does not reshape the")
     print("   microprofile, it adds a parallel supply over the burrow depth)")
 
-    print("\n-- chamber drawdown feasibility ----------------------------")
-    h_ch = config.get(cfg, "chamber.height_above_sediment")
-    vol = area * h_ch
+    print("\n-- chamber signal size (REVISION 1: real geometry) ---------")
+    vol = sc.chamber_volume(bore, h_ch)
     dur = config.get(cfg, "chamber.deployment_duration")
-    dcdt = J * area / vol
-    print(f"  V = {vol*1e3:.1f} L, A = {area:.4f} m2, V/A = {vol/area:.3f} m")
-    print(f"  diffusion-only dC_w/dt       {-dcdt*3600*1e3:.2f} umol L-1 h-1")
+    dcdt = sc.drawdown_rate(J, h_ch)
+    ratio = sc.aspect_ratio(h_ch, bore)
+    limit = config.get(cfg, "chamber.aspect_ratio_max")
+    print(f"  tube {tube:.2f} m - insertion {d_ins:.2f} m -> water column {h_ch:.2f} m")
+    print(f"  V = {vol*1e3:.1f} L, A = {area:.5f} m2, V/A = h = {h_ch:.3f} m")
+    print(f"  aspect ratio h/bore          {ratio:.2f} : 1", end="")
+    print(f"   *** exceeds calibrated {limit:.1f}:1 ***" if ratio > limit else "")
+    print(f"  diffusion-only dC_w/dt       {-dcdt*3600*1e3:.3f} umol L-1 h-1"
+          f"  ({dcdt*3600/c0*100:.3f} %/h)")
+    print(f"  time to 20% drawdown         "
+          f"{sc.time_to_drawdown(J, h_ch, c0, 0.20)/3600:.0f} h")
     print(f"  drawdown over {dur/3600:.1f} h            "
           f"{dcdt*dur/c0*100:.2f} % of initial")
-    print("  NOTE: this is the DIFFUSION-ONLY case. With advection at")
-    print("        k >= 1e-11 the drawdown is several times larger.")
+    res = config.get(cfg, "chamber.sensor_resolution") * 1e-3
+    drift = config.get(cfg, "chamber.sensor_drift") * 1e-3 / 3600.0
+    print(f"  signal/noise over {dur/3600:.1f} h        "
+          f"{sc.signal_to_noise(J, h_ch, dur, res, drift):.2f}"
+          f"   (need >~3; diffusion-only case)")
+    print("  NOTE: DIFFUSION-ONLY. Advection at k >= 1e-11 plus prawns")
+    print("        gives several times this. But the tall water column is")
+    print("        the binding constraint -- see 'if you shorten the tube'.")
+
+    print("\n-- if you shorten the tube ---------------------------------")
+    for h_alt in (0.50, 0.30, 0.20, 0.10):
+        r_alt = sc.drawdown_rate(J, h_alt)
+        print(f"    water column {h_alt:.2f} m -> {r_alt*3600*1e3:6.3f} umol L-1 h-1"
+              f",  {sc.time_to_drawdown(J, h_alt, c0, 0.20)/3600:5.0f} h to 20%"
+              f",  aspect {sc.aspect_ratio(h_alt, bore):.1f}:1")
+
+    print("\n-- prawn-count lottery (enclosed area is small) ------------")
+    print(f"  A = {area:.5f} m2")
+    for dens in (10.0, 50.0, 100.0, 200.0):
+        print(f"    {dens:5.0f} ind/m2 -> mean {sc.prawn_count_mean(dens, area):5.2f}"
+              f" prawns, P(zero)={sc.prawn_zero_probability(dens, area)*100:5.1f}%"
+              f", CV={sc.prawn_count_cv(dens, area)*100:5.1f}%"
+              f", need {sc.replicates_for_cv(dens, area, 0.30):2d} chambers for CV<=30%")
+    print("  Poisson is optimistic: real prawn beds are patchy, which")
+    print("  raises P(zero) and CV above these values.")
     print()
 
 

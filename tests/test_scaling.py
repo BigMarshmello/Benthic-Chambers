@@ -195,3 +195,116 @@ def test_irrigation_number_is_small_across_the_oxic_layer():
     assert sc.irrigation_number(5e-6, L, d_s) < 0.1
     # but over the burrow depth scale it is enormous
     assert sc.irrigation_number(5e-6, 0.30, d_s) > 100.0
+
+
+# --------------------------------------------- chamber design (revision 1)
+
+BORE = 0.168        # m, production chamber internal diameter
+TUBE = 0.60         # m, tube length
+D_INS = 0.10        # m, insertion depth
+H_WATER = TUBE - D_INS
+
+
+def _diffusive_flux():
+    d_s = sc.sediment_diffusivity(D0, PHI)
+    return sc.diffusive_flux(PHI, d_s, C0, RATE)
+
+
+def test_chamber_area_matches_the_production_bore():
+    assert sc.chamber_area(BORE) == pytest.approx(0.02217, abs=1e-5)
+    # the 300 mm placeholder I used at stage 0 enclosed 3.2x more area
+    assert sc.chamber_area(0.300) / sc.chamber_area(BORE) == pytest.approx(3.19, abs=0.02)
+
+
+def test_drawdown_depends_on_height_not_diameter():
+    """The enclosed area cancels: dC_w/dt = J/h. Diameter does not help signal."""
+    flux = _diffusive_flux()
+    narrow = sc.drawdown_rate(flux, H_WATER)
+    assert sc.drawdown_rate(flux, H_WATER) == pytest.approx(narrow)
+    # halving the water column doubles the signal
+    assert sc.drawdown_rate(flux, H_WATER / 2) == pytest.approx(2 * narrow)
+
+
+def test_drawdown_rate_rejects_nonpositive_height():
+    with pytest.raises(ValueError):
+        sc.drawdown_rate(1e-7, 0.0)
+
+
+def test_production_chamber_diffusion_only_signal_is_marginal():
+    """The headline revision-1 finding, pinned as a test.
+
+    With a 0.50 m water column the diffusion-only drawdown is ~0.5
+    umol/L/h, i.e. ~0.2% of saturation per hour.
+    """
+    flux = _diffusive_flux()
+    rate_umol_per_l_per_h = sc.drawdown_rate(flux, H_WATER) * 3600 * 1e3
+    assert rate_umol_per_l_per_h == pytest.approx(0.513, abs=0.01)
+    hours_to_20pct = sc.time_to_drawdown(flux, H_WATER, C0, 0.20) / 3600
+    assert hours_to_20pct > 90
+
+
+def test_shortening_the_tube_is_the_effective_fix():
+    """A 0.20 m water column recovers most of the lost sensitivity."""
+    flux = _diffusive_flux()
+    short = sc.drawdown_rate(flux, 0.20)
+    long = sc.drawdown_rate(flux, H_WATER)
+    assert short / long == pytest.approx(2.5, abs=0.01)
+
+
+def test_production_chamber_exceeds_the_calibrated_aspect_ratio():
+    """Published stirred chambers run near 1.6 : 1; this one is ~3 : 1."""
+    assert sc.aspect_ratio(H_WATER, BORE) == pytest.approx(2.98, abs=0.01)
+    assert sc.aspect_ratio(H_WATER, BORE) > 2.0
+    # Huettel & Gust 1992 / Janssen 2005 geometry, for contrast
+    assert sc.aspect_ratio(0.30, 0.19) < 2.0
+
+
+def test_signal_to_noise_flags_a_one_hour_deployment():
+    """One hour is not enough on this chamber; four hours is borderline."""
+    flux = _diffusive_flux()
+    resolution = 0.4e-3        # mol m-3 = 0.4 umol/L
+    drift = 0.5e-3 / 3600      # mol m-3 s-1 = 0.5 umol/L/h
+    one_hour = sc.signal_to_noise(flux, H_WATER, 3600, resolution, drift)
+    four_hours = sc.signal_to_noise(flux, H_WATER, 4 * 3600, resolution, drift)
+    assert one_hour < 1.0
+    assert four_hours > one_hour
+
+
+def test_signal_to_noise_is_infinite_without_noise():
+    assert math.isinf(sc.signal_to_noise(1e-7, 0.5, 3600, 0.0, 0.0))
+
+
+# ---------------------------------------------------- prawn-count variance
+
+
+def test_prawn_count_mean_and_zero_probability():
+    area = sc.chamber_area(BORE)
+    assert sc.prawn_count_mean(100.0, area) == pytest.approx(2.217, abs=1e-3)
+    # at 100 ind/m2 roughly one chamber in nine catches no prawn at all
+    assert sc.prawn_zero_probability(100.0, area) == pytest.approx(0.109, abs=0.002)
+    # at 10 ind/m2 four chambers in five are empty
+    assert sc.prawn_zero_probability(10.0, area) > 0.79
+
+
+def test_prawn_count_cv_is_large_for_this_bore():
+    area = sc.chamber_area(BORE)
+    assert sc.prawn_count_cv(100.0, area) == pytest.approx(0.672, abs=0.002)
+    # a 300 mm bore would have cut it substantially
+    assert sc.prawn_count_cv(100.0, sc.chamber_area(0.300)) < 0.40
+
+
+def test_replicates_needed_to_tame_counting_noise():
+    area = sc.chamber_area(BORE)
+    assert sc.replicates_for_cv(100.0, area, 0.30) == 6
+    assert sc.replicates_for_cv(10.0, area, 0.30) > 20
+    # denser beds need fewer chambers
+    assert sc.replicates_for_cv(200.0, area, 0.30) < 6
+
+
+def test_replicates_rejects_an_empty_bed():
+    with pytest.raises(ValueError):
+        sc.replicates_for_cv(0.0, sc.chamber_area(BORE), 0.30)
+
+
+def test_prawn_cv_infinite_at_zero_density():
+    assert math.isinf(sc.prawn_count_cv(0.0, sc.chamber_area(BORE)))

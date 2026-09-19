@@ -30,12 +30,12 @@ is either closed-form algebra or a tagged placeholder.
    question. The biggest: **no diffusive boundary layer** (§4.1) and **no
    photosynthesis** (§4.2) — and you have a light chamber, so without the second the
    light deployments cannot be modelled at all.
-6. **Engineering result you can use now:** a 30 cm × 15 cm chamber (10.6 L) over
-   diffusion-dominated sediment with no prawns draws down only **0.68% of initial
-   DO per hour** (1.7 µmol L⁻¹ h⁻¹). That is close to the noise floor of a
-   cheap sensor. **Reduce chamber height, not diameter** — sensitivity scales as
-   `A/V = 1/h`, and shrinking the diameter makes the prawn-count lottery (§4.6)
-   worse.
+6. **Engineering result you can use now — and it is the binding constraint.**
+   With the real production geometry (168 mm bore, ~600 mm tube, 100 mm inserted
+   ⇒ a 0.50 m water column), diffusion-dominated sediment with no prawns draws
+   down only **0.205% of initial DO per hour** (0.51 µmol L⁻¹ h⁻¹), and needs
+   **97 h to reach 20% drawdown**. **Shorten the water column.** Full analysis in
+   §12.
 
 ---
 
@@ -232,11 +232,12 @@ geometry.
 
 ### G6 — Chamber area drives the replicate variance
 
-At 30 cm diameter, `A = 0.0707 m²`. At 100 ind m⁻² that is **7 prawns**; at 10
-ind m⁻² it is **0.7**, so a large fraction of chambers contain **zero** prawns.
-Poisson counting noise on prawn number will dominate between-chamber scatter, and it
-scales as `1/√(ρA)`. **This is a chamber-design result, and it argues against
-shrinking the diameter.** Quantifiable in stage 6; I recommend adding it.
+At the real 168 mm bore, `A = 0.0222 m²`. At 100 ind m⁻² that is **2.2 prawns per
+chamber**, and **11% of chambers catch none at all**; at 10 ind m⁻², **80% are
+empty**. Poisson counting noise on prawn number dominates between-chamber scatter and
+scales as `1/√(ρA)`, giving a **67% CV at 100 ind m⁻²** — so you need **6 chambers**
+just to pull the counting noise alone down to 30%. Poisson is the optimistic case;
+real callianassid beds are patchy, which makes it worse. Full table in §12.
 
 ### G7 — Smaller omissions, all now in the config
 
@@ -291,10 +292,7 @@ Pe = 1 at `k = 1.1×10⁻¹¹ m²`. **Your thresholds bracket it.** Note this cr
 moves with `U`, `H`, `λ` and `R` — it is not a property of the sediment alone, which
 is itself a result worth stating in your report.
 
-**Chamber sensitivity** (D = 0.30 m, h = 0.15 m ⇒ V = 10.6 L, A = 0.0707 m²):
-diffusion-only drawdown **1.7 µmol L⁻¹ h⁻¹ = 0.68% h⁻¹**. Marginal. With advection at
-`k ≥ 10⁻¹¹` plus prawns, expect several times that. **Design implication: reduce
-chamber height.**
+**Chamber sensitivity** — superseded by §12, which uses the real geometry.
 
 ---
 
@@ -324,7 +322,7 @@ That is deliberate: it makes "invent a precise value silently" a test failure.
 | Priority | Parameter | How | Why it ranks here |
 |---|---|---|---|
 | 1 | `permeability` | constant-head permeameter on intact cores | Sets the entire regime; currently a sweep axis, not an input |
-| 2 | `chamber.diameter`, `height` | **a tape measure, today** | Flux scales as `A`; a 10% diameter error is a 21% flux error. Free to fix. |
+| 2 | `chamber.tube_length` | **a tape measure, today** | Bore is now known (168 mm). Tube length sets the water column, and the water column sets whether the deployment works at all (§12). |
 | 3 | `respiration.rate_zero_order` | core incubation or microprofile fit | Sets `L` and the baseline flux |
 | 4 | `mound_height`, `mound_wavelength` | ruler + scaled photo | Sets the field advective forcing |
 | 5 | `prawn_density` | count burrow openings in a quadrat | Sets `α₀` *and* the replicate variance |
@@ -346,6 +344,8 @@ That is deliberate: it makes "invent a precise value silently" a test failure.
 | L6 | Continuous, time-averaged `α` | Fine for hour-long deployments, wrong for short ones. |
 | L7 | `k` isotropic | Probably minor in well-sorted sand. |
 | L8 | No temperature transient in the chamber | Could be significant for a clear chamber in sun; measurable, so measure it. |
+| L9 | 16 mm wall treated as infinitely thin | The wall displaces and compacts a 16 mm annulus of sand exactly where stirrer-driven downwelling enters. Would bias chamber advection; direction unclear. |
+| L10 | Stirrer swirl assumed to reach the bed undiminished | **Likely optimistic at 3:1 aspect ratio.** Sets chamber advective flux; see `stirrer_transfer_efficiency`. |
 
 ---
 
@@ -356,16 +356,17 @@ analytic verification that does not depend on your site values.
 
 **Decisions I'd like before stage 5:**
 
-1. **Chamber geometry.** Diameter and height, measured. Cheapest large error in the
-   whole project.
-2. **Confirm the α profile** in §G4 (exponential, `z_irr` = 5 cm, far shallower than
-   the burrow) or tell me you want the deep profile instead — I'll run both if you're
-   unsure, it's cheap.
-3. **Do you want G1 (boundary layer) and G2 (photosynthesis) in?** My recommendation
-   is yes to both: G1 because it may be your largest chamber bias at low `k`, G2
-   because otherwise your light chamber is unmodelled. Both add scope.
-4. **Do you want G6 (prawn-count variance) as a stage-6 output?** It is a genuine
-   chamber-design result and it is nearly free once the sensitivity machinery exists.
+1. ~~**Chamber geometry.**~~ **Answered (revision 1):** 168 mm bore, 200 mm OD,
+   ~600 mm tube. Still need the **tube length measured**, and a decision on whether
+   you can shorten the water column (§12).
+2. ~~**Confirm the α profile.**~~ **Answered (revision 1):** you have no estimate, so
+   the assumed profile in §G4 stands as the default and `α₀` and `z_irr` are swept.
+   The model's job is now to report how much they matter; if stage 6 ranks them high,
+   §G4 gives the tracer method for measuring `α`.
+3. ~~**G1 / G2 / G6 in scope?**~~ **Answered (revision 1):** in. See §12 for exactly
+   what "and other stuff" was taken to mean — say so if I have over- or under-read it.
+4. **New, and the one that matters:** can the water column be shortened, or must the
+   tube stay ~600 mm? This decides whether a deployment is hours or days (§12).
 
 ---
 
@@ -432,3 +433,139 @@ analytic verification that does not depend on your site values.
   shrimps on marine soft-bottom ecosystems.* Oceanogr. Mar. Biol. Annu. Rev. 49:137–192.
 - Flemming, B.W. *Depositional processes in Saldanha Bay and Langebaan Lagoon,
   Western Cape, South Africa.* (site sedimentology; bimodal quartz/carbonate sands)
+
+---
+
+## 12. Revision 1 — real chamber geometry, and what it costs you
+
+**Inputs that changed:** production chamber is **168 mm bore / 200 mm OD**, tube
+**~600 mm** ("maybe slightly longer, definitely less than 1 m"), and you have **no
+estimate for α**. Scope confirmed: diffusive boundary layer **in**, plus the rest of
+the recommended set (§12.4).
+
+### 12.1 Headline: the chamber is 3.3× less sensitive than my stage-0 placeholder
+
+The enclosed area is **0.0222 m²**, not the 0.0707 m² I assumed — 31% of it. But
+**area is not the problem**, because it cancels:
+
+```
+V dC_w/dt = −J·A ,   V = A·h    ⇒    dC_w/dt = J/h
+```
+
+**The signal depends only on the water column height `h`, not on the bore.** With a
+600 mm tube inserted 100 mm, `h = 0.50 m` against the 0.15 m I had assumed.
+
+| | Stage 0 placeholder | **Production chamber** |
+|---|---|---|
+| Bore | 300 mm | **168 mm** |
+| Water column `h` | 0.15 m | **0.50 m** |
+| Enclosed area | 0.0707 m² | **0.0222 m²** |
+| Volume | 10.6 L | **11.1 L** |
+| Aspect ratio `h`/bore | 0.5 : 1 | **3.0 : 1** |
+| Diffusion-only drawdown | 1.71 µmol L⁻¹ h⁻¹ | **0.51 µmol L⁻¹ h⁻¹** |
+| … as % of saturation | 0.68 %/h | **0.205 %/h** |
+| Time to 20% drawdown | 29 h | **97 h** |
+
+At a 900 mm tube it is worse still: `h = 0.80 m`, 0.32 µmol L⁻¹ h⁻¹, **156 h**.
+
+### 12.2 Signal-to-noise: a short deployment will not work in the diffusive case
+
+Over a 4 h deployment the diffusion-only signal is **2.1 µmol L⁻¹**. Against a
+0.4 µmol L⁻¹ sensor resolution and 0.5 µmol L⁻¹ h⁻¹ of drift, that is a
+**signal-to-noise of 0.86** — you would be fitting a slope to drift.
+
+This is the diffusion-only floor, and it is the honest worst case. With advection at
+`k ≥ 10⁻¹¹ m²` plus prawns, total flux could be 3–10× higher and a 3–4 h deployment
+becomes workable. **But you do not yet know `k`, so you cannot currently rule out the
+floor case** — and a chamber designed only for the favourable case will return
+unusable data on the patches that matter most.
+
+**What actually fixes it — shorten the water column:**
+
+| Water column `h` | Drawdown | Time to 20% | Aspect ratio |
+|---|---|---|---|
+| 0.50 m *(as built)* | 0.51 µmol L⁻¹ h⁻¹ | 97 h | 3.0 : 1 |
+| 0.30 m | 0.86 µmol L⁻¹ h⁻¹ | 58 h | 1.8 : 1 |
+| **0.20 m** | **1.28 µmol L⁻¹ h⁻¹** | **39 h** | **1.2 : 1** |
+| 0.10 m | 2.57 µmol L⁻¹ h⁻¹ | 19 h | 0.6 : 1 |
+
+This needs no new fabrication if the lid can seat lower in the tube, or if the tube
+is inserted deeper — though deeper insertion trades against G5 (burrow severance) and
+changes the flow path under the wall. **A ~0.20 m water column is the sweet spot**:
+2.5× the signal, and it brings the aspect ratio back inside the envelope the stirred-
+chamber literature actually calibrated.
+
+### 12.3 Two new problems the tall tube creates
+
+**Aspect ratio is outside the calibrated envelope.** Huettel & Gust (1992) and Janssen
+et al. (2005) both ran ~1.6 : 1 (30 cm tall, 19 cm ID). The production chamber is
+**3.0 : 1**, up to 4.8 : 1 at a 900 mm tube. Two assumptions weaken:
+
+- **Swirl may not reach the bed.** The forced vortex is generated at the stirrer and
+  decays with distance. Over 3–5 bore diameters, the radial pressure gradient at the
+  sediment surface is **lower than the stirrer setting — possibly far lower**. I have
+  added `stirrer_transfer_efficiency` (default 1.0, the *optimistic* bound, so the
+  model overstates rather than understates chamber advection until calibrated). **This
+  is now a top-3 uncertainty and it is specific to your geometry.** Calibrate with a
+  dye or brine release over an impermeable plate, or a centre-to-wall differential
+  pressure measurement at the bed.
+- **The well-mixed assumption is no longer a formality.** A 0.5 m tall, 0.168 m bore
+  tube, clear, in sun, can stratify thermally. If it does, your DO sensor reads a
+  local value, not `C_w`, and the flux is wrong regardless of everything else in this
+  model. **Cheap check: a second DO sensor at a different height, or a dye test.**
+
+**`Δp_s` rescaled.** The Huettel & Gust anchor is a pressure *gradient* (0.2 Pa cm⁻¹),
+so the smaller bore needs a proportionally smaller centre-to-wall difference:
+`Δp_s = 0.2 Pa cm⁻¹ × R/2` = **0.84 Pa**, down from 1.5 Pa.
+
+### 12.4 Prawn-count lottery, at the real bore
+
+`A = 0.0222 m²`. Assuming Poisson-distributed burrows:
+
+| Prawn density | Mean per chamber | P(chamber is empty) | CV | Chambers for CV ≤ 30% |
+|---|---|---|---|---|
+| 10 ind m⁻² | 0.22 | **80%** | 212% | 51 |
+| 50 ind m⁻² | 1.11 | 33% | 95% | 11 |
+| 100 ind m⁻² | 2.22 | 11% | 67% | **6** |
+| 200 ind m⁻² | 4.43 | 1% | 48% | 3 |
+
+Poisson is the **optimistic** null model — real callianassid beds are patchy, which
+raises both P(empty) and CV. **Count burrow openings at your site before fixing the
+replicate number**; it is the cheapest measurement on the list and it determines
+whether 6 chambers or 20 is the right answer.
+
+Note this is counting noise *alone* — a floor on replication, not an estimate of total
+variance. Sediment heterogeneity and per-prawn activity add to it.
+
+### 12.5 What "and other stuff" was taken to mean
+
+Confirmed in scope. **Say so if I have over- or under-read this:**
+
+| Gap | In? | Where it lands |
+|---|---|---|
+| G1 diffusive boundary layer | **yes** | Stage 1 — changes the 1D model directly |
+| G2 photosynthesis / light chamber | **yes** | Stages 1 & 5 |
+| G6 prawn-count variance | **yes** | Stage 6 (scaffolding already in `scaling.py`) |
+| G7 flux-estimator bias | **yes** | Stage 5 |
+| G4 α uncertainty | **swept, not assumed** | Stages 4 & 6 |
+| G3 tidal forcing | **no** — out of scope | Stated as a limitation (L5) |
+| G5 burrow severance | **bounded, not resolved** | Insertion-depth sweep, stage 5 |
+
+### 12.6 What changed in the repo
+
+- `config/config.yaml`: chamber section rewritten — `bore`, `outer_diameter`,
+  `wall_thickness`, `tube_length`, derived `height_above_sediment` and `water_volume`,
+  `aspect_ratio_max`, `stirrer_transfer_efficiency`, `well_mixed_assumption`,
+  `sensor_resolution`, `sensor_drift`, `replicates`. `stirrer_pressure` 1.5 → 0.84 Pa.
+  `deployment_duration` 1 h → 4 h. 69 parameters now.
+- `benthic/scaling.py`: chamber area/volume, drawdown rate, time-to-drawdown, aspect
+  ratio, signal-to-noise, and the Poisson prawn-count functions.
+- `tests/`: 47 passing (was 31). The headline numbers above are pinned as tests, so
+  they cannot drift silently as parameters change.
+
+### 12.7 Three things to do before Stage 5
+
+1. **Measure the tube length**, and tell me whether the water column can be shortened.
+2. **Count burrow openings** in a few quadrats — sets both `α₀` and the replicate number.
+3. **Get your DO sensor's short-term stability and drift** (not its absolute accuracy).
+   With this water column, drift is the same size as the signal.

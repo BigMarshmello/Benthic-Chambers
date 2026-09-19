@@ -28,6 +28,7 @@ Site: sandprawn (*Kraussillichirus kraussi*) flats, Langebaan Lagoon, South Afri
 | Stage | Description | State |
 |---|---|---|
 | 0 | Physics, assumptions, parameter inventory | **done** — [note](docs/stage0_physics_and_assumptions.md) |
+| 0.1 | Revision 1: real chamber geometry | **done** — [§12](docs/stage0_physics_and_assumptions.md#12-revision-1--real-chamber-geometry-and-what-it-costs-you) |
 | 1 | 1D diffusion + zero-order consumption | not started |
 | 2 | 2D Darcy pressure and flow field | not started |
 | 3 | Darcy ⇄ O₂ transport coupling | not started |
@@ -65,6 +66,10 @@ python3 -m pytest tests/ -q        # test suite
 
 ## Data status
 
-Permeability, grain size, irradiance and chamber dimensions are **not yet measured**.
-`config.get()` raises rather than substituting a value, so nothing downstream can
-quietly invent them. See §6 of the stage 0 note for the measurement priority list.
+Permeability, grain size, irradiance, tube length and sensor noise are **not yet
+measured**. `config.get()` raises rather than substituting a value, so nothing
+downstream can quietly invent them. See §6 of the stage 0 note for the measurement
+priority list, and §12.7 for the three that block Stage 5.
+
+Chamber geometry as built: **168 mm bore, 200 mm OD, ~600 mm tube**. The resulting
+0.50 m water column makes the diffusion-only signal marginal — see §12.

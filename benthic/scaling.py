@@ -163,3 +163,105 @@ def crossover_permeability(
     advection-controlled.
     """
     return mu * phi * d_s / (grad_p * length)
+
+
+# --------------------------------------------------------------------
+# Chamber design: signal size and replicate variance
+# --------------------------------------------------------------------
+#
+# Added at revision 1, once the real production geometry was known
+# (168 mm bore, ~600 mm tube).  Both results below are properties of the
+# chamber, not of the sediment, so they can be settled before any PDE is
+# solved -- and they turned out to be the binding design constraints.
+
+
+def chamber_area(bore: float) -> float:
+    """Enclosed sediment area, m2. ``bore`` is the INTERNAL diameter."""
+    return math.pi * (bore / 2.0) ** 2
+
+
+def chamber_volume(bore: float, height: float) -> float:
+    """Enclosed water volume, m3, for a plain cylinder."""
+    return chamber_area(bore) * height
+
+
+def drawdown_rate(flux: float, height: float) -> float:
+    """dC_w/dt in mol m-3 s-1 for a uniform flux over the enclosed area.
+
+    V dC_w/dt = -J*A and V = A*h, so the area cancels exactly:
+    dC_w/dt = J/h.  The signal depends on the WATER COLUMN HEIGHT alone,
+    not on the chamber diameter.  Diameter still matters, but for
+    replicate variance (see prawn_count_cv), not for signal size.
+    """
+    if height <= 0.0:
+        raise ValueError("water column height must be positive")
+    return flux / height
+
+
+def time_to_drawdown(flux: float, height: float, c0: float, fraction: float) -> float:
+    """Seconds for C_w to fall by ``fraction`` of c0, at constant flux.
+
+    Optimistic: it ignores the decline in flux as C_w falls, so the real
+    time is longer.
+    """
+    return fraction * c0 / drawdown_rate(flux, height)
+
+
+def aspect_ratio(height: float, bore: float) -> float:
+    """Water column height divided by bore.
+
+    Published stirred chambers run near 1.5-1.7; far above that, the
+    well-mixed assumption and the swirl reaching the bed both weaken.
+    """
+    return height / bore
+
+
+def signal_to_noise(
+    flux: float, height: float, duration: float, resolution: float, drift: float = 0.0
+) -> float:
+    """Concentration change over a deployment, in units of sensor noise.
+
+    ``resolution`` and ``drift`` are in mol m-3 and mol m-3 s-1.
+    Below ~3 the flux is not measurable against the instrument.
+    """
+    signal = drawdown_rate(flux, height) * duration
+    noise = resolution + drift * duration
+    if noise <= 0.0:
+        return float("inf")
+    return signal / noise
+
+
+def prawn_count_mean(density: float, area: float) -> float:
+    """Expected number of prawns enclosed by one chamber."""
+    return density * area
+
+
+def prawn_zero_probability(density: float, area: float) -> float:
+    """P(a chamber encloses no prawns), assuming Poisson-distributed burrows.
+
+    Poisson is the right null model for randomly placed burrows. Real
+    callianassid beds are patchy, which makes this an OPTIMISTIC bound:
+    clustering raises P(zero) above the Poisson value.
+    """
+    return math.exp(-prawn_count_mean(density, area))
+
+
+def prawn_count_cv(density: float, area: float) -> float:
+    """Coefficient of variation of the enclosed prawn count, = 1/sqrt(mean)."""
+    mean = prawn_count_mean(density, area)
+    if mean <= 0.0:
+        return float("inf")
+    return 1.0 / math.sqrt(mean)
+
+
+def replicates_for_cv(density: float, area: float, target_cv: float) -> int:
+    """Chambers needed so the MEAN prawn count has CV <= target_cv.
+
+    Counting noise only -- it is a floor on replication, not an estimate
+    of total variance. Real scatter also carries sediment heterogeneity
+    and per-prawn activity differences, so treat this as a lower bound.
+    """
+    mean = prawn_count_mean(density, area)
+    if mean <= 0.0:
+        raise ValueError("no prawns: replication cannot fix a zero mean")
+    return math.ceil((1.0 / target_cv) ** 2 / mean)
